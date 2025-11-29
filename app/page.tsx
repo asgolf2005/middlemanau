@@ -6,6 +6,7 @@ import { ArrowRight, Star, Shield, Heart, Award, Clock, Users, Phone, CheckCircl
 import { motion } from 'framer-motion'
 import { imagePaths } from '@/lib/image-paths'
 import GoogleReviews from '@/components/GoogleReviews'
+import GoogleMap from '@/components/GoogleMap'
 
 export default function HomePage() {
   const services = [
@@ -894,6 +895,27 @@ export default function HomePage() {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <GoogleReviews showStats={true} maxReviews={3} />
+        </div>
+      </section>
+
+      {/* Location & Map Section */}
+      <section className="section-padding bg-gray-50">
+        <div className="container-custom">
+          <div className="text-center mb-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">Find Us</h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Conveniently located in Brandon Park Shopping Centre, Wheelers Hill.
+                See how far we are from you!
+              </p>
+            </motion.div>
+          </div>
+
+          <GoogleMap />
         </div>
       </section>
 
