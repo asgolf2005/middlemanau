@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MapPin, Navigation, Phone, Clock, ExternalLink, Route, Loader2, Car, AlertCircle } from 'lucide-react'
+import { MapPin, Navigation, Phone, Clock, ExternalLink, Compass, Loader2, Car, AlertCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface GoogleMapProps {
@@ -224,7 +224,7 @@ export default function GoogleMap({
                       </>
                     ) : (
                       <>
-                        <Route size={16} />
+                        <Compass size={16} />
                         Calculate Distance
                       </>
                     )}
@@ -257,7 +257,7 @@ export default function GoogleMap({
             <div className="bg-gradient-to-r from-star-orange to-star-orange/80 rounded-2xl p-6 shadow-xl text-white">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <Route size={24} />
+                  <Compass size={24} />
                 </div>
                 <h3 className="text-2xl font-bold">Distance to Star Smiles</h3>
               </div>
