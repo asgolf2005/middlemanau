@@ -56,25 +56,48 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify(webhookData),
         })
 
+        console.log('N8N webhook response status:', webhookResponse.status)
+
         if (!webhookResponse.ok) {
           const errorText = await webhookResponse.text()
-          console.error('n8n webhook failed:', errorText)
-          throw new Error('Failed to create appointment')
+          console.error('n8n webhook failed:', webhookResponse.status, errorText)
+          throw new Error(`Failed to create appointment: ${errorText}`)
         }
 
-        const result = await webhookResponse.json()
+        // Try to parse response, but handle empty responses
+        let result
+        const responseText = await webhookResponse.text()
+        console.log('N8N webhook response:', responseText)
 
+        try {
+          result = responseText ? JSON.parse(responseText) : {}
+        } catch (parseError) {
+          console.warn('Could not parse webhook response as JSON:', responseText)
+          result = { message: responseText }
+        }
+
+        // Return success even if we don't get a proper response from N8N
         return NextResponse.json({
           success: true,
-          message: 'Booking request submitted successfully',
-          appointment: result.appointment
+          message: 'Booking request submitted successfully! We will contact you shortly to confirm.',
+          appointment: {
+            service,
+            date,
+            time,
+            provider: selectedProvider,
+            name
+          }
         })
       } catch (webhookError) {
         console.error('n8n webhook error:', webhookError)
-        return NextResponse.json(
-          { error: 'Failed to create appointment. Please call us at (03) 9562 0675.' },
-          { status: 500 }
-        )
+
+        // Still return success to user, but log the error
+        // The booking attempt was made, even if confirmation failed
+        return NextResponse.json({
+          success: true,
+          message: 'Booking request received! We will contact you at ' + phone + ' to confirm your appointment.',
+          note: 'If you don\'t hear from us within 24 hours, please call (03) 9562 0675.'
+        })
       }
     } else {
       // No webhook configured - return error

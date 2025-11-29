@@ -14,6 +14,7 @@ interface BookingData {
   email: string
   phone: string
   service: string
+  provider: string
   date: Date | null
   time: string
   notes: string
@@ -21,12 +22,18 @@ interface BookingData {
 }
 
 const services = [
-  { id: 'checkup', name: 'Dental Checkup & Cleaning', duration: '60 min', price: '$180' },
-  { id: 'cosmetic', name: 'Cosmetic Consultation', duration: '45 min', price: '$150' },
-  { id: 'implants', name: 'Dental Implant Consultation', duration: '60 min', price: '$200' },
-  { id: 'invisalign', name: 'Invisalign Consultation', duration: '45 min', price: 'FREE' },
-  { id: 'emergency', name: 'Emergency Appointment', duration: '30 min', price: '$220' },
-  { id: 'children', name: 'Children\'s Dental Visit', duration: '45 min', price: '$160' },
+  { id: 'checkup', name: 'Dental Checkup & Cleaning', duration: '60 min', price: '$180', providers: ['dr_nalini', 'dr_nesrine', 'dr_momina'] },
+  { id: 'cosmetic', name: 'Cosmetic Consultation', duration: '45 min', price: '$150', providers: ['dr_nalini', 'dr_momina'] },
+  { id: 'implants', name: 'Dental Implant Consultation', duration: '60 min', price: '$200', providers: ['dr_nalini'] },
+  { id: 'invisalign', name: 'Invisalign Consultation', duration: '45 min', price: 'FREE', providers: ['dr_nalini', 'dr_nesrine'] },
+  { id: 'emergency', name: 'Emergency Appointment', duration: '30 min', price: '$220', providers: ['dr_nalini', 'dr_nesrine', 'dr_momina'] },
+  { id: 'children', name: 'Children\'s Dental Visit', duration: '45 min', price: '$160', providers: ['dr_momina', 'dr_nesrine'] },
+]
+
+const providers = [
+  { id: 'dr_nalini', name: 'Dr. Nalini Prasad', specialty: 'Implants, Cosmetic & General', image: '/images/team/Dr.Nalini-Prasad.jpg' },
+  { id: 'dr_nesrine', name: 'Dr. Nesrine Armanious', specialty: 'Family & Preventive Care', image: '/images/team/Dr.Nesrine-Armanious-qfpyuux9xl9a1z82ozxuzh56j0t4ksr4kria0b7xes.jpeg' },
+  { id: 'dr_momina', name: 'Dr. Momina', specialty: 'Pediatric & Cosmetic', image: '/images/team/Dr.Momina-225x300.jpg' },
 ]
 
 const defaultTimeSlots: TimeSlot[] = [
@@ -54,15 +61,23 @@ export default function BookingCalendar() {
     email: '',
     phone: '',
     service: '',
+    provider: '',
     date: null,
     time: '',
     notes: '',
     isNewPatient: false,
   })
 
+  // Get available providers for selected service
+  const getAvailableProviders = () => {
+    const selectedService = services.find(s => s.id === bookingData.service)
+    if (!selectedService) return []
+    return providers.filter(p => selectedService.providers.includes(p.id))
+  }
+
   // Fetch availability when date is selected
   useEffect(() => {
-    if (bookingData.date && step === 3) {
+    if (bookingData.date && step === 4) {
       fetchAvailableSlots()
     }
   }, [bookingData.date, step])
@@ -131,7 +146,7 @@ export default function BookingCalendar() {
   const handleDateSelect = (date: Date | null) => {
     if (date && isDateAvailable(date)) {
       setBookingData({ ...bookingData, date })
-      setStep(3)
+      setStep(4)
     }
   }
 
@@ -149,6 +164,7 @@ export default function BookingCalendar() {
           email: bookingData.email,
           phone: bookingData.phone,
           service: bookingData.service,
+          provider: bookingData.provider,
           date: bookingData.date?.toISOString().split('T')[0],
           time: bookingData.time,
           notes: bookingData.notes,
@@ -222,15 +238,15 @@ export default function BookingCalendar() {
       {/* Progress Steps */}
       <div className="bg-gradient-to-r from-star-blue to-star-blue-light p-6">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <div key={s} className="flex items-center">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
                 step >= s ? 'bg-white text-star-blue' : 'bg-white/30 text-white'
               }`}>
                 {s}
               </div>
-              {s < 4 && (
-                <div className={`w-12 md:w-20 h-1 mx-2 transition-all ${
+              {s < 5 && (
+                <div className={`w-8 md:w-16 h-1 mx-1 transition-all ${
                   step > s ? 'bg-white' : 'bg-white/30'
                 }`} />
               )}
@@ -239,9 +255,10 @@ export default function BookingCalendar() {
         </div>
         <div className="text-center mt-4 text-white text-sm">
           {step === 1 && 'Select Service'}
-          {step === 2 && 'Choose Date'}
-          {step === 3 && 'Pick Time'}
-          {step === 4 && 'Your Details'}
+          {step === 2 && 'Choose Provider'}
+          {step === 3 && 'Choose Date'}
+          {step === 4 && 'Pick Time'}
+          {step === 5 && 'Your Details'}
         </div>
       </div>
 
@@ -284,7 +301,7 @@ export default function BookingCalendar() {
             </motion.div>
           )}
 
-          {/* Step 2: Select Date */}
+          {/* Step 2: Select Provider */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -294,6 +311,64 @@ export default function BookingCalendar() {
             >
               <div className="flex items-center justify-between mb-6">
                 <button onClick={() => setStep(1)} className="text-star-blue hover:text-star-blue-dark">
+                  ← Back
+                </button>
+                <h3 className="text-2xl font-bold text-gray-900">Choose Your Provider</h3>
+                <div className="w-16" />
+              </div>
+
+              <div className="max-w-3xl mx-auto">
+                <p className="text-center text-gray-600 mb-8">
+                  Select a dentist for your {services.find(s => s.id === bookingData.service)?.name}
+                </p>
+                <div className="grid md:grid-cols-3 gap-6">
+                  {getAvailableProviders().map((provider) => (
+                    <button
+                      key={provider.id}
+                      onClick={() => {
+                        setBookingData({ ...bookingData, provider: provider.id })
+                        setStep(3)
+                      }}
+                      className={`group relative overflow-hidden rounded-2xl border-2 transition-all hover:shadow-xl ${
+                        bookingData.provider === provider.id
+                          ? 'border-star-blue bg-star-blue/5 shadow-lg'
+                          : 'border-gray-200 hover:border-star-blue'
+                      }`}
+                    >
+                      <div className="aspect-[3/4] relative bg-gradient-to-br from-star-blue-light to-star-blue">
+                        <img
+                          src={provider.image}
+                          alt={provider.name}
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      </div>
+                      <div className="p-4 text-left">
+                        <h4 className="font-bold text-gray-900 mb-1">{provider.name}</h4>
+                        <p className="text-sm text-gray-600">{provider.specialty}</p>
+                      </div>
+                      {bookingData.provider === provider.id && (
+                        <div className="absolute top-4 right-4 w-8 h-8 bg-star-blue rounded-full flex items-center justify-center">
+                          <CheckCircle className="text-white" size={20} />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 3: Select Date */}
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <button onClick={() => setStep(2)} className="text-star-blue hover:text-star-blue-dark">
                   ← Back
                 </button>
                 <h3 className="text-2xl font-bold text-gray-900">Choose a Date</h3>
@@ -355,16 +430,16 @@ export default function BookingCalendar() {
             </motion.div>
           )}
 
-          {/* Step 3: Select Time */}
-          {step === 3 && (
+          {/* Step 4: Select Time */}
+          {step === 4 && (
             <motion.div
-              key="step3"
+              key="step4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
               <div className="flex items-center justify-between mb-6">
-                <button onClick={() => setStep(2)} className="text-star-blue hover:text-star-blue-dark">
+                <button onClick={() => setStep(3)} className="text-star-blue hover:text-star-blue-dark">
                   ← Back
                 </button>
                 <h3 className="text-2xl font-bold text-gray-900">Pick a Time</h3>
@@ -389,7 +464,7 @@ export default function BookingCalendar() {
                         onClick={() => {
                           if (slot.available) {
                             setBookingData({ ...bookingData, time: slot.time })
-                            setStep(4)
+                            setStep(5)
                           }
                         }}
                         disabled={!slot.available}
@@ -410,16 +485,16 @@ export default function BookingCalendar() {
             </motion.div>
           )}
 
-          {/* Step 4: Contact Details */}
-          {step === 4 && (
+          {/* Step 5: Contact Details */}
+          {step === 5 && (
             <motion.div
-              key="step4"
+              key="step5"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
               <div className="flex items-center justify-between mb-6">
-                <button onClick={() => setStep(3)} className="text-star-blue hover:text-star-blue-dark">
+                <button onClick={() => setStep(4)} className="text-star-blue hover:text-star-blue-dark">
                   ← Back
                 </button>
                 <h3 className="text-2xl font-bold text-gray-900">Your Details</h3>
