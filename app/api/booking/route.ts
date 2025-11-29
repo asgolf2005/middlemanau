@@ -1,5 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Helper function to convert 12-hour time to 24-hour format
+function convertTo24Hour(time12h: string): string {
+  const [time, period] = time12h.trim().split(' ')
+  let [hours, minutes] = time.split(':')
+
+  let hour = parseInt(hours)
+
+  if (period === 'PM' && hour !== 12) {
+    hour += 12
+  } else if (period === 'AM' && hour === 12) {
+    hour = 0
+  }
+
+  // Ensure two digits with leading zero
+  const formattedHour = hour.toString().padStart(2, '0')
+  const formattedMinutes = (minutes || '00').padStart(2, '0')
+
+  return `${formattedHour}:${formattedMinutes}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -28,10 +48,18 @@ export async function POST(request: NextRequest) {
     // Use default provider if not specified
     const selectedProvider = provider || 'dr_nalini'
 
+    // Convert time from "9:00 AM" to "09:00" (24-hour format)
+    const time24h = convertTo24Hour(time)
+
     // Send to your existing n8n workflow
     const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
 
     if (webhookUrl) {
+      // Calculate end time (assume 60 minute appointments)
+      const [hours, minutes] = time24h.split(':').map(Number)
+      const endHour = hours + 1
+      const endTime = `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+
       // Format data to match your n8n workflow's expected structure
       const webhookData = {
         tool_name: 'book_dental_appointment',
@@ -41,11 +69,15 @@ export async function POST(request: NextRequest) {
         dob: '', // Not collected on website form
         provider: selectedProvider,
         date: date, // YYYY-MM-DD
-        start: time.substring(0, 5), // HH:MM (remove seconds if present)
+        start: time24h, // HH:MM in 24-hour format (e.g., "14:00")
+        end: endTime, // HH:MM in 24-hour format (e.g., "15:00")
         reason_for_visit: service,
         notes: notes || '',
-        source: 'website'
+        source: 'website',
+        is_new_patient: isNewPatient || false
       }
+
+      console.log('Sending to N8N:', JSON.stringify(webhookData, null, 2))
 
       try {
         const webhookResponse = await fetch(webhookUrl, {
