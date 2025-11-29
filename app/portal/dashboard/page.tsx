@@ -13,12 +13,16 @@ import {
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface Appointment {
-  id: number
+  id: string
   service: string
-  doctor: string
+  provider: string
   date: string
   time: string
   status: string
+  patient_name: string
+  patient_email: string
+  patient_phone: string
+  notes?: string
 }
 
 interface PatientData {
@@ -55,19 +59,27 @@ export default function DashboardPage() {
 
         if (patient) {
           setPatientData(patient)
+        }
 
-          // Fetch appointments from appointments table
-          const { data: appointmentsData } = await supabase
-            .from('appointments')
-            .select('*')
-            .eq('patient_id', patient.patient_id)
-            .gte('date', new Date().toISOString().split('T')[0])
-            .order('date', { ascending: true })
-            .limit(5)
+        // Fetch appointments using the API endpoint
+        try {
+          const response = await fetch('/api/portal/appointments')
+          const data = await response.json()
 
-          if (appointmentsData) {
-            setAppointments(appointmentsData)
+          if (data.appointments) {
+            // Filter upcoming appointments only and limit to 3
+            const upcoming = data.appointments
+              .filter((apt: Appointment) =>
+                apt.status !== 'cancelled' &&
+                apt.status !== 'completed' &&
+                new Date(apt.date + 'T00:00:00') >= new Date()
+              )
+              .slice(0, 3)
+
+            setAppointments(upcoming)
           }
+        } catch (error) {
+          console.error('Failed to fetch appointments:', error)
         }
 
         setLoading(false)
@@ -185,51 +197,65 @@ export default function DashboardPage() {
               </div>
 
               {appointments.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {appointments.map((apt) => (
-                    <div
+                    <Link
                       key={apt.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      href="/portal/appointments"
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all hover:shadow-md group"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-star-blue/10 rounded-lg flex items-center justify-center">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-12 bg-star-blue/10 rounded-lg flex items-center justify-center group-hover:bg-star-blue/20 transition-colors">
                           <Calendar className="text-star-blue" size={24} />
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{apt.service}</p>
-                          <p className="text-sm text-gray-600">{apt.doctor}</p>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 group-hover:text-star-blue transition-colors">{apt.service}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Clock className="text-gray-400" size={14} />
+                            <p className="text-sm text-gray-600">
+                              {new Date(apt.date + 'T00:00:00').toLocaleDateString('en-AU', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric'
+                              })} at {apt.time}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-900">
-                          {new Date(apt.date).toLocaleDateString('en-AU', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                        <p className="text-sm text-gray-600">{apt.time}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           apt.status === 'confirmed'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-green-100 text-green-700 border border-green-200'
+                            : apt.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                            : 'bg-gray-100 text-gray-700 border border-gray-200'
                         }`}>
-                          {apt.status === 'confirmed' ? 'Confirmed' : 'Pending'}
+                          {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
                         </span>
-                        <ChevronRight className="text-gray-400" size={20} />
+                        <ChevronRight className="text-gray-400 group-hover:text-star-blue transition-colors" size={20} />
                       </div>
-                    </div>
+                    </Link>
                   ))}
+
+                  {appointments.length >= 3 && (
+                    <Link
+                      href="/portal/appointments"
+                      className="block text-center py-3 text-star-blue hover:text-star-blue-dark font-medium text-sm transition-colors"
+                    >
+                      View All Appointments →
+                    </Link>
+                  )}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Calendar className="text-gray-300 mx-auto mb-4" size={48} />
-                  <p className="text-gray-500 mb-4">No upcoming appointments</p>
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="text-gray-400" size={32} />
+                  </div>
+                  <p className="text-gray-600 mb-1 font-medium">No upcoming appointments</p>
+                  <p className="text-gray-500 text-sm mb-6">Book your next dental visit to keep your smile healthy!</p>
                   <Link href="/book" className="btn-primary inline-flex items-center gap-2">
                     <Plus size={20} />
-                    Book Now
+                    Book Appointment
                   </Link>
                 </div>
               )}
