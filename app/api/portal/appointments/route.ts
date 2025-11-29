@@ -90,10 +90,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Appointment ID required' }, { status: 400 })
     }
 
-    // Get patient ID first
+    // Get patient info
     const { data: patient } = await supabase
       .from('patients')
-      .select('id, phone')
+      .select('id, phone, email, full_name')
       .eq('email', user.email)
       .single()
 
@@ -113,38 +113,87 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
     }
 
-    // Use your existing n8n workflow to cancel
-    const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
-    if (n8nWebhookUrl) {
-      try {
-        await fetch(n8nWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tool_name: 'cancel_appointment',
-            phone: patient.phone,
-            appointment_id: parseInt(appointmentId)
-          }),
-        })
-      } catch (webhookError) {
-        console.error('Cancel webhook error:', webhookError)
-        return NextResponse.json(
-          { error: 'Failed to cancel appointment' },
-          { status: 500 }
-        )
-      }
+    console.log('Cancelling appointment:', appointmentId, 'for patient:', patient.phone)
+
+    // Step 1: Update status in Supabase first
+    const { error: updateError } = await supabase
+      .from('appointments')
+      .update({
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', appointmentId)
+      .eq('patient_id', patient.id)
+
+    if (updateError) {
+      console.error('Failed to update appointment status:', updateError)
+      return NextResponse.json(
+        { error: 'Failed to cancel appointment in database' },
+        { status: 500 }
+      )
     }
 
-    // Fetch updated appointment
+    // Step 2: Send cancellation to N8N workflow
+    const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+    if (n8nWebhookUrl) {
+      const cancellationData = {
+        tool_name: 'cancel_appointment',
+        phone: patient.phone,
+        email: patient.email,
+        full_name: patient.full_name,
+        appointment_id: parseInt(appointmentId),
+        appointment_date: appointment.appointment_date,
+        appointment_time: appointment.appointment_time,
+        service: appointment.reason_for_visit,
+        provider: appointment.provider,
+        calendar_event_id: appointment.calendar_event_id,
+        cancelled_by: 'patient_portal',
+        cancelled_at: new Date().toISOString()
+      }
+
+      console.log('Sending cancellation to N8N:', cancellationData)
+
+      try {
+        const webhookResponse = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cancellationData),
+        })
+
+        const responseText = await webhookResponse.text()
+        console.log('N8N cancellation response:', webhookResponse.status, responseText)
+
+        if (!webhookResponse.ok) {
+          console.error('N8N webhook failed:', webhookResponse.status, responseText)
+          // Continue anyway - appointment is already cancelled in DB
+        }
+      } catch (webhookError) {
+        console.error('N8N webhook error:', webhookError)
+        // Continue anyway - appointment is already cancelled in DB
+      }
+    } else {
+      console.warn('N8N webhook URL not configured')
+    }
+
+    // Step 3: Fetch updated appointment to confirm
     const { data: updatedAppointment } = await supabase
       .from('appointments')
       .select('*')
       .eq('id', appointmentId)
       .single()
 
-    return NextResponse.json({ success: true, appointment: updatedAppointment })
+    console.log('Appointment cancelled successfully:', appointmentId)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Appointment cancelled successfully. You will receive a confirmation email.',
+      appointment: updatedAppointment
+    })
   } catch (error) {
     console.error('Cancel appointment error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

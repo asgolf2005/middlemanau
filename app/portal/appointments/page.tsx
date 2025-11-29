@@ -53,8 +53,8 @@ export default function AppointmentsPage() {
     }
   }
 
-  const handleCancel = async (appointmentId: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) {
+  const handleCancel = async (appointmentId: string, appointmentDetails: string) => {
+    if (!confirm(`Are you sure you want to cancel this appointment?\n\n${appointmentDetails}\n\nThis action cannot be undone.`)) {
       return
     }
 
@@ -64,15 +64,18 @@ export default function AppointmentsPage() {
         method: 'DELETE',
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        alert('Appointment cancelled successfully. You will receive a confirmation email.')
+        // Show success message
+        alert('✅ Appointment cancelled successfully!\n\nYou will receive a confirmation email shortly.\n\nA cancellation notification has been sent to the clinic.')
         fetchAppointments()
       } else {
-        throw new Error('Failed to cancel appointment')
+        throw new Error(data.error || 'Failed to cancel appointment')
       }
     } catch (error) {
       console.error('Cancel error:', error)
-      alert('Failed to cancel appointment. Please call us at (03) 9562 0675.')
+      alert('❌ Failed to cancel appointment.\n\nPlease call us at (03) 9562 0675 to cancel.')
     } finally {
       setCancelling(null)
     }
@@ -230,11 +233,24 @@ export default function AppointmentsPage() {
                     {apt.status !== 'cancelled' && (
                       <div className="flex lg:flex-col gap-2">
                         <button
-                          onClick={() => handleCancel(apt.id)}
+                          onClick={() => handleCancel(
+                            apt.id,
+                            `${apt.service}\n${new Date(apt.date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' })}\nat ${apt.time}`
+                          )}
                           disabled={cancelling === apt.id}
-                          className="flex-1 lg:flex-none px-6 py-3 text-red-600 hover:bg-red-50 border border-red-200 rounded-xl transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 lg:flex-none px-6 py-3 text-red-600 hover:bg-red-50 border-2 border-red-300 rounded-xl transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md flex items-center justify-center gap-2"
                         >
-                          {cancelling === apt.id ? 'Cancelling...' : 'Cancel Appointment'}
+                          {cancelling === apt.id ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                              Cancelling...
+                            </>
+                          ) : (
+                            <>
+                              <X size={18} />
+                              Cancel Appointment
+                            </>
+                          )}
                         </button>
                       </div>
                     )}
