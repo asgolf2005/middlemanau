@@ -43,8 +43,33 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`Found ${appointments?.length || 0} appointments for patient ${patient.id}`)
+
+    // Log all appointments with their calendar event IDs for debugging
     if (appointments && appointments.length > 0) {
-      console.log('Sample appointment:', appointments[0])
+      console.log('==================== APPOINTMENTS LIST ====================')
+      appointments.forEach((apt, index) => {
+        console.log(`[${index + 1}] ID: ${apt.id} | Date: ${apt.appointment_date} ${apt.appointment_time} | Service: ${apt.reason_for_visit}`)
+        console.log(`    Status: ${apt.status} | Calendar Event ID: ${apt.calendar_event_id || 'NOT SET'}`)
+        console.log(`    Provider: ${apt.provider}`)
+        console.log('---')
+      })
+      console.log('===========================================================')
+
+      // Warn about duplicate calendar event IDs
+      const calendarIds = appointments
+        .map(apt => apt.calendar_event_id)
+        .filter(id => id) // Remove null/undefined
+
+      const duplicates = calendarIds.filter((id, index) => calendarIds.indexOf(id) !== index)
+      if (duplicates.length > 0) {
+        console.warn('⚠️ WARNING: Duplicate calendar event IDs found:', [...new Set(duplicates)])
+      }
+
+      // Warn about missing calendar event IDs
+      const missingIds = appointments.filter(apt => !apt.calendar_event_id)
+      if (missingIds.length > 0) {
+        console.warn(`⚠️ WARNING: ${missingIds.length} appointment(s) have no calendar_event_id`)
+      }
     }
 
     // Transform to match expected format
@@ -113,7 +138,20 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
     }
 
-    console.log('Cancelling appointment:', appointmentId, 'for patient:', patient.phone)
+    console.log('==================== CANCELLATION REQUEST ====================')
+    console.log('Appointment ID:', appointmentId)
+    console.log('Patient:', patient.full_name, '(' + patient.phone + ')')
+    console.log('Appointment Date:', appointment.appointment_date, 'at', appointment.appointment_time)
+    console.log('Service:', appointment.reason_for_visit)
+    console.log('Provider:', appointment.provider)
+    console.log('Calendar Event ID:', appointment.calendar_event_id || 'NOT SET')
+    console.log('Current Status:', appointment.status)
+    console.log('============================================================')
+
+    // Validate that calendar_event_id exists
+    if (!appointment.calendar_event_id) {
+      console.warn('⚠️ WARNING: Appointment has no calendar_event_id! This appointment may not be in Google Calendar.')
+    }
 
     // Step 1: Update status in Supabase first
     const { error: updateError } = await supabase
@@ -151,7 +189,10 @@ export async function DELETE(request: NextRequest) {
         cancelled_at: new Date().toISOString()
       }
 
-      console.log('Sending cancellation to N8N:', cancellationData)
+      console.log('==================== SENDING TO N8N ====================')
+      console.log('Cancellation Data:', JSON.stringify(cancellationData, null, 2))
+      console.log('🎯 Calendar Event ID being cancelled:', cancellationData.calendar_event_id || 'NONE')
+      console.log('=======================================================')
 
       try {
         const webhookResponse = await fetch(n8nWebhookUrl, {
@@ -161,7 +202,10 @@ export async function DELETE(request: NextRequest) {
         })
 
         const responseText = await webhookResponse.text()
-        console.log('N8N cancellation response:', webhookResponse.status, responseText)
+        console.log('==================== N8N RESPONSE ====================')
+        console.log('Status:', webhookResponse.status)
+        console.log('Response:', responseText)
+        console.log('======================================================')
 
         if (!webhookResponse.ok) {
           console.error('N8N webhook failed:', webhookResponse.status, responseText)

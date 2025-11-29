@@ -18,6 +18,8 @@ interface Appointment {
   patient_phone: string
   notes?: string
   created_at: string
+  calendar_event_id?: string
+  provider?: string
 }
 
 export default function AppointmentsPage() {
@@ -225,6 +227,19 @@ export default function AppointmentsPage() {
                         <div className="mt-4 p-4 bg-gray-50 rounded-xl">
                           <p className="text-sm font-semibold text-gray-700 mb-1">Notes:</p>
                           <p className="text-gray-600">{apt.notes}</p>
+                        </div>
+                      )}
+
+                      {/* Calendar Event ID - for debugging duplicates */}
+                      {apt.calendar_event_id && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-xs font-semibold text-blue-700 mb-1">Calendar Event ID:</p>
+                          <p className="text-xs text-blue-600 font-mono break-all">{apt.calendar_event_id}</p>
+                        </div>
+                      )}
+                      {!apt.calendar_event_id && apt.status !== 'cancelled' && (
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-xs text-yellow-700">⚠️ No calendar event ID - may not be in Google Calendar</p>
                         </div>
                       )}
                     </div>

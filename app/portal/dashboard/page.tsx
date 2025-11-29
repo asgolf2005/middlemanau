@@ -23,6 +23,7 @@ interface Appointment {
   patient_email: string
   patient_phone: string
   notes?: string
+  calendar_event_id?: string
 }
 
 interface PatientData {
