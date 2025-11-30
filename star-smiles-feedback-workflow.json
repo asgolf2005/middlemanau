@@ -1,0 +1,169 @@
+{
+  "name": "Star Smiles - Feedback & Review System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "starsmiles-feedback",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-feedback",
+      "name": "Webhook - Receive Feedback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "starsmiles-feedback"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isPositive }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-check-rating",
+      "name": "IF - Check Rating",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Generate unique coupon code for happy customers\nconst items = $input.all();\n\nreturn items.map(item => {\n  const appointmentId = item.json.appointmentId || 'STAR';\n  const timestamp = Date.now();\n  const random = Math.random().toString(36).substring(2, 6).toUpperCase();\n  \n  // Create unique coupon code\n  const couponCode = `STAR10-${appointmentId.slice(0,4).toUpperCase()}-${random}`;\n  \n  // Set expiry date to 90 days from now\n  const expiryDate = new Date();\n  expiryDate.setDate(expiryDate.getDate() + 90);\n  \n  return {\n    json: {\n      ...item.json,\n      couponCode: couponCode,\n      couponValue: 10,\n      couponDiscount: '$10',\n      expiryDate: expiryDate.toISOString().split('T')[0],\n      expiryDateFormatted: expiryDate.toLocaleDateString('en-AU', { \n        day: 'numeric', \n        month: 'long', \n        year: 'numeric' \n      })\n    }\n  };\n});"
+      },
+      "id": "code-generate-coupon",
+      "name": "Generate Coupon Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.patientPhone }}",
+        "message": "🌟 Thank you for the great feedback, {{ $json.patientName }}!\n\nWe'd be honored if you'd share your experience on Google:\n👉 https://search.google.com/local/writereview?placeid=ChIJYUvLkR9P1moRUHxzKbfxgB0\n\nAs a thank you, here's $10 OFF your next visit:\n\n💰 Coupon Code: {{ $json.couponCode }}\n📅 Valid until: {{ $json.expiryDateFormatted }}\n\nThank you for choosing Star Smiles! ⭐"
+      },
+      "id": "twilio-send-review-request",
+      "name": "Twilio - Send Review Request + Coupon",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "twilioApi": {
+          "id": "REPLACE_WITH_YOUR_TWILIO_CREDENTIALS_ID",
+          "name": "Star Smiles Twilio"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.patientPhone }}",
+        "message": "Thank you for your honest feedback, {{ $json.patientName }}.\n\nWe take your concerns seriously and will use this to improve our service.\n\nIf you'd like to discuss this further, please call us at (03) 9562 0675.\n\n- Star Smiles Team"
+      },
+      "id": "twilio-send-thank-you",
+      "name": "Twilio - Send Thank You",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [650, 400],
+      "credentials": {
+        "twilioApi": {
+          "id": "REPLACE_WITH_YOUR_TWILIO_CREDENTIALS_ID",
+          "name": "Star Smiles Twilio"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "info@starsmiles.com.au",
+        "subject": "⚠️ Low Feedback Rating - {{ $json.patientName }}",
+        "emailType": "text",
+        "message": "ATTENTION: Negative Feedback Received\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPatient Details:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nName: {{ $json.patientName }}\nPhone: {{ $json.patientPhone }}\nAppointment ID: {{ $json.appointmentId }}\n\nFeedback:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRating: {{ $json.rating }} / 5 stars ⭐\nComments: {{ $json.comments || 'No comments provided' }}\nTimestamp: {{ $json.timestamp }}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ ACTION REQUIRED:\nPlease follow up with this patient as soon as possible.\n\nContact: {{ $json.patientPhone }}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nThis is an automated notification from Star Smiles Feedback System.",
+        "options": {}
+      },
+      "id": "email-notify-staff",
+      "name": "Email - Notify Staff",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [850, 400],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_YOUR_EMAIL_CREDENTIALS_ID",
+          "name": "Star Smiles Email"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Receive Feedback": {
+      "main": [
+        [
+          {
+            "node": "IF - Check Rating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Check Rating": {
+      "main": [
+        [
+          {
+            "node": "Generate Coupon Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Twilio - Send Thank You",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Coupon Code": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Send Review Request + Coupon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twilio - Send Thank You": {
+      "main": [
+        [
+          {
+            "node": "Email - Notify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-11-29T00:00:00.000Z",
+  "versionId": "1"
+}

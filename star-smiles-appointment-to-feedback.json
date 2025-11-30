@@ -1,0 +1,87 @@
+{
+  "name": "Star Smiles - Send Feedback Request After 24h",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "starsmiles-appointment-completed",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-appointment-completed",
+      "name": "Webhook - Appointment Completed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "starsmiles-appointment-completed",
+      "notes": "Triggered when appointment status changes to 'completed'"
+    },
+    {
+      "parameters": {
+        "unit": "hours",
+        "amount": 24
+      },
+      "id": "wait-24-hours",
+      "name": "Wait 24 Hours",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "webhookId": "wait-24h",
+      "notes": "Waits exactly 24 hours before proceeding"
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.patientPhone }}",
+        "message": "Hi {{ $json.patientName }}! 👋\n\nThanks for choosing Star Smiles! We'd love to hear about your recent {{ $json.service }} visit.\n\nPlease share your feedback:\nhttps://starsmiles.com.au/feedback?apt={{ $json.appointmentId }}&name={{ $json.patientName }}\n\nIt takes just 30 seconds! ⭐\n\n- Star Smiles Team"
+      },
+      "id": "twilio-send-feedback-request",
+      "name": "Twilio - Send Feedback SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "twilioApi": {
+          "id": "REPLACE_WITH_YOUR_TWILIO_CREDENTIALS_ID",
+          "name": "Star Smiles Twilio"
+        }
+      },
+      "notes": "Sends SMS with feedback survey link"
+    }
+  ],
+  "connections": {
+    "Webhook - Appointment Completed": {
+      "main": [
+        [
+          {
+            "node": "Wait 24 Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 24 Hours": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Send Feedback SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-11-29T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,187 @@
+{
+  "name": "Star Smiles - Auto-Complete Past Appointments",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule - Run Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "notes": "Runs every hour to check for completed appointments"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "appointments",
+        "returnAll": true,
+        "options": {
+          "queryName": "status,appointment_date,appointment_time",
+          "filter": {
+            "conditions": [
+              {
+                "keyName": "status",
+                "keyValue": "confirmed"
+              }
+            ]
+          }
+        }
+      },
+      "id": "supabase-get-appointments",
+      "name": "Supabase - Get Confirmed Appointments",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Star Smiles Supabase"
+        }
+      },
+      "notes": "Get all appointments with status='confirmed'"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Check if appointment date/time has passed\nconst appointmentDate = $input.item.json.appointment_date;\nconst appointmentTime = $input.item.json.appointment_time;\n\n// Combine date and time\nconst appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);\nconst now = new Date();\n\n// Check if appointment was more than 1 hour ago\nconst hoursSince = (now - appointmentDateTime) / (1000 * 60 * 60);\n\nif (hoursSince > 1) {\n  // Appointment has passed - mark for completion\n  return {\n    json: {\n      ...$input.item.json,\n      shouldComplete: true,\n      hoursSinceAppointment: Math.round(hoursSince * 10) / 10,\n      currentTime: now.toISOString()\n    }\n  };\n} else {\n  // Appointment hasn't happened yet or just finished\n  return {\n    json: {\n      ...$input.item.json,\n      shouldComplete: false,\n      hoursSinceAppointment: Math.round(hoursSince * 10) / 10\n    }\n  };\n}"
+      },
+      "id": "code-check-if-past",
+      "name": "Check If Appointment Has Passed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "notes": "Only process appointments that were >1 hour ago"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldComplete }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-should-complete",
+      "name": "IF - Should Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "notes": "Only continue if appointment should be completed"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_PUBLIC_SITE_URL }}/api/portal/appointments/complete?id={{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-call-complete-api",
+      "name": "HTTP - Call Complete API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 200],
+      "notes": "Calls your API to mark appointment as complete"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Log what happened\nconst appointment = $input.item.json;\n\nconsole.log('✅ Auto-completed appointment:', {\n  id: appointment.id,\n  patient_id: appointment.patient_id,\n  date: appointment.appointment_date,\n  time: appointment.appointment_time,\n  service: appointment.reason_for_visit,\n  hoursSince: appointment.hoursSinceAppointment\n});\n\nreturn {\n  json: {\n    success: true,\n    appointmentId: appointment.id,\n    message: `Completed appointment ${appointment.id}`,\n    feedbackScheduled: true\n  }\n};"
+      },
+      "id": "code-log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 200],
+      "notes": "Log successful completion for monitoring"
+    }
+  ],
+  "connections": {
+    "Schedule - Run Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Get Confirmed Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Get Confirmed Appointments": {
+      "main": [
+        [
+          {
+            "node": "Check If Appointment Has Passed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Appointment Has Passed": {
+      "main": [
+        [
+          {
+            "node": "IF - Should Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Should Complete?": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Call Complete API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Call Complete API": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-11-29T00:00:00.000Z",
+  "versionId": "1"
+}
