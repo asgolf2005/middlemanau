@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Star, Send, CheckCircle, Loader2, Sparkles } from 'lucide-react'
 
-export default function FeedbackPage() {
+function FeedbackForm() {
   const searchParams = useSearchParams()
   const [appointmentId, setAppointmentId] = useState<string | null>(null)
   const [patientName, setPatientName] = useState<string | null>(null)
@@ -251,5 +251,17 @@ export default function FeedbackPage() {
         </form>
       </motion.div>
     </div>
+  )
+}
+
+export default function FeedbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-star-blue-light via-white to-star-orange/10 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-star-blue animate-spin" />
+      </div>
+    }>
+      <FeedbackForm />
+    </Suspense>
   )
 }
